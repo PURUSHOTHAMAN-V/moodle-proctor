@@ -49,6 +49,17 @@ function setLoadingState(isLoading) {
   loginButton.innerText = isLoading ? 'Signing In...' : 'Login'
 }
 
+function consumeRedirectMessage() {
+  const redirectMessage = sessionStorage.getItem('authRedirectMessage')
+
+  if (!redirectMessage) {
+    return
+  }
+
+  sessionStorage.removeItem('authRedirectMessage')
+  setMessage(redirectMessage, 'info')
+}
+
 async function validateExistingSession() {
   const session = getStoredSession()
 
@@ -133,6 +144,7 @@ async function login() {
 }
 
 window.addEventListener('load', () => {
+  consumeRedirectMessage()
   validateExistingSession()
 
   document.getElementById('password').addEventListener('keydown', event => {

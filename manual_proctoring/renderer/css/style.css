@@ -70,6 +70,22 @@ button:disabled{
  text-align:center;
 }
 
+.dashboard-header{
+ display:flex;
+ justify-content:space-between;
+ align-items:center;
+ gap:16px;
+}
+
+.dashboard-card{
+ background:#f7f9fc;
+ border:1px solid #dfe6ef;
+ border-radius:10px;
+ padding:18px;
+ margin:16px 0 24px;
+ text-align:left;
+}
+
 .start-btn{
  background:#28a745;
  font-size:18px;
@@ -88,15 +104,32 @@ button:disabled{
  display:flex;
  flex-direction:column;
  align-items:center;
+ gap:16px;
 }
 
 .top-bar{
  width:100%;
  display:flex;
  justify-content:space-between;
+ align-items:center;
  padding:10px;
  background:#222;
  color:white;
+ border-radius:10px;
+}
+
+.exam-meta{
+ display:flex;
+ gap:12px;
+ margin-top:6px;
+ font-size:14px;
+ color:#d5d7da;
+}
+
+.exam-actions{
+ width:100%;
+ display:flex;
+ justify-content:flex-end;
 }
 
 .video-box{
@@ -120,8 +153,28 @@ video{
  object-fit:cover;
 
 }
-.status{
- margin-top:10px;
- color:green;
- font-weight:bold;
+
+.secondary-btn{
+ background:#475467;
+}
+
+.secondary-btn:hover{
+ background:#344054;
+}
+
+.completion-screen{
+ display:flex;
+ justify-content:center;
+ align-items:center;
+ height:100vh;
+ width:100%;
+ background:#f4f6f9;
+}
+
+.completion-card{
+ background:white;
+ padding:40px;
+ border-radius:12px;
+ box-shadow:0 4px 10px rgba(0,0,0,0.1);
+ text-align:center;
 }

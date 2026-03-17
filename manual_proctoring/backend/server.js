@@ -6,6 +6,7 @@ const path = require('path')
 const app = express()
 const PORT = 5000
 const SESSION_TTL_MS = 60 * 60 * 1000
+const EXAM_DURATION_SECONDS = 10 * 60
 
 app.use(cors())
 app.use(express.json())
@@ -134,16 +135,21 @@ app.get('/api/session', requireAuth, (req, res) => {
   })
 })
 
-app.get('/api/student', (req, res) => {
-  return res.json(req.student)
+app.get('/api/student', requireAuth, (req, res) => {
+  return res.json({
+    success: true,
+    student: req.student
+  })
 })
 
 app.use('/files', requireAuth, express.static(path.join(__dirname, 'files')))
 
-app.get('/exam', requireAuth, (req, res) => {
+app.get('/api/exam', requireAuth, (req, res) => {
   return res.json({
-    timer: 10,
-    questionPaper: 'question-paper.pdf'
+    success: true,
+    timerSeconds: EXAM_DURATION_SECONDS,
+    questionPaper: 'question-paper.pdf',
+    student: req.student
   })
 })
 

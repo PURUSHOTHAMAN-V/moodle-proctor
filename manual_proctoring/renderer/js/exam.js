@@ -1,132 +1,208 @@
-// LOAD EXAM DATA
-async function loadExam() {
+const API_BASE_URL = 'http://localhost:5000'
 
-    try {
+let examTimerId = null
+let questionPaperUrl = null
 
-        const response = await fetch("http://localhost:5000/exam");
-        const data = await response.json();
+function getStoredSession() {
+  const rawSession = localStorage.getItem('authSession')
 
-        // start timer
-        startTimer(data.timer);
+  if (!rawSession) {
+    return null
+  }
 
-        // VIEW ONLY PDF (remove download + print toolbar)
-        const fileUrl = "http://localhost:5000/files/" + data.questionPaper + "#toolbar=0";
+  try {
+    return JSON.parse(rawSession)
+  } catch (error) {
+    clearSession()
+    return null
+  }
+}
 
-        document.getElementById("questionFrame").src = fileUrl;
+function clearSession() {
+  localStorage.removeItem('authSession')
+  localStorage.removeItem('token')
+}
 
-    } catch (error) {
+function redirectToLogin(message) {
+  if (message) {
+    sessionStorage.setItem('authRedirectMessage', message)
+  }
 
-        console.error("Error loading exam:", error);
-        alert("Failed to load exam.");
+  window.location = 'login.html'
+}
 
+function setExamStatus(message, type = 'info') {
+  const status = document.getElementById('examMessage')
+
+  if (!status) {
+    return
+  }
+
+  status.hidden = !message
+  status.className = `status-message ${type}`
+  status.innerText = message || ''
+}
+
+function formatDuration(totalSeconds) {
+  const minutes = String(Math.floor(totalSeconds / 60)).padStart(2, '0')
+  const seconds = String(totalSeconds % 60).padStart(2, '0')
+  return `${minutes}:${seconds}`
+}
+
+async function fetchWithSession(url, options = {}) {
+  const session = getStoredSession()
+
+  if (!session || !session.token) {
+    redirectToLogin('Please sign in before opening the exam.')
+    return null
+  }
+
+  const response = await fetch(url, {
+    ...options,
+    headers: {
+      ...(options.headers || {}),
+      Authorization: `Bearer ${session.token}`
+    }
+  })
+
+  if (response.status === 401) {
+    clearSession()
+    redirectToLogin('Your session expired. Please sign in again.')
+    return null
+  }
+
+  return response
+}
+
+function renderExamHeader(student) {
+  document.getElementById('examStudentName').innerText = student.name
+  document.getElementById('examStudentEmail').innerText = student.email
+  document.getElementById('examTitle').innerText = student.exam
+}
+
+function completeExam() {
+  if (examTimerId) {
+    clearInterval(examTimerId)
+    examTimerId = null
+  }
+
+  document.body.innerHTML = `
+    <div class="completion-screen">
+      <div class="completion-card">
+        <h1>Exam Completed</h1>
+        <p>Your exam session has ended successfully.</p>
+      </div>
+    </div>
+  `
+}
+
+function startTimer(totalSeconds) {
+  const timerElement = document.getElementById('timer')
+  let remainingSeconds = totalSeconds
+
+  timerElement.innerText = formatDuration(remainingSeconds)
+
+  examTimerId = setInterval(() => {
+    remainingSeconds -= 1
+
+    if (remainingSeconds < 0) {
+      completeExam()
+      return
     }
 
+    timerElement.innerText = formatDuration(remainingSeconds)
+  }, 1000)
 }
 
+async function loadQuestionPaper(questionPaperName) {
+  const response = await fetchWithSession(`${API_BASE_URL}/files/${questionPaperName}`)
 
-// TIMER FUNCTION
-function startTimer(seconds) {
+  if (!response) {
+    return
+  }
 
-    let time = seconds;
+  if (!response.ok) {
+    throw new Error('Question paper request failed')
+  }
 
-    const timerElement = document.getElementById("timer");
-
-    const interval = setInterval(() => {
-
-        let minutes = Math.floor(time / 60);
-        let sec = time % 60;
-
-        if (minutes < 10) {
-            minutes = "0" + minutes;
-        }
-
-        if (sec < 10) {
-            sec = "0" + sec;
-        }
-
-        timerElement.innerText = minutes + ":" + sec;
-
-        time--;
-if (time < 0) {
-
-    clearInterval(interval);
-
-    document.body.innerHTML = `
-        <div style="
-            display:flex;
-            justify-content:center;
-            align-items:center;
-            height:100vh;
-            font-family:Arial;
-            background:#f4f6f9;
-        ">
-            <div style="
-                background:white;
-                padding:40px;
-                border-radius:10px;
-                box-shadow:0 4px 10px rgba(0,0,0,0.1);
-                text-align:center;
-            ">
-                <h1> Exam Completed</h1>
-                <p>Your exam has been submitted successfully.</p>
-            </div>
-        </div>
-    `;
+  const fileBlob = await response.blob()
+  questionPaperUrl = URL.createObjectURL(fileBlob)
+  document.getElementById('questionFrame').src = `${questionPaperUrl}#toolbar=0`
 }
-    }, 1000);
 
+async function loadExam() {
+  setExamStatus('Loading exam details...', 'info')
+
+  try {
+    const response = await fetchWithSession(`${API_BASE_URL}/api/exam`)
+
+    if (!response) {
+      return
+    }
+
+    const data = await response.json()
+
+    if (!response.ok || !data.success) {
+      setExamStatus('Could not load the exam data.', 'error')
+      return
+    }
+
+    renderExamHeader(data.student)
+    startTimer(data.timerSeconds)
+    await loadQuestionPaper(data.questionPaper)
+    setExamStatus('Exam loaded successfully.', 'info')
+  } catch (error) {
+    console.error('Error loading exam:', error)
+    setExamStatus('Failed to load the exam. Please verify the backend is running.', 'error')
+  }
 }
 
 async function startCamera() {
+  const video = document.getElementById('video')
 
-    try {
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    setExamStatus('Camera access is not supported in this environment.', 'error')
+    return
+  }
 
-        const video = document.getElementById("video");
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video: true,
+      audio: false
+    })
 
-        const stream = await navigator.mediaDevices.getUserMedia({
-            video: true,
-            audio: false
-        });
-
-        video.srcObject = stream;
-
-        video.onloadedmetadata = () => {
-            video.play();
-        };
-
-    }
-
-    catch (error) {
-
-        console.error("Camera error:", error);
-        alert("Please allow camera permission for the exam.");
-
-    }
-
+    video.srcObject = stream
+    setExamStatus('Camera connected. Good luck!', 'info')
+  } catch (error) {
+    console.error('Camera error:', error)
+    setExamStatus('Please allow camera permission before starting the exam.', 'error')
+  }
 }
 
-// Disable right click
-document.addEventListener("contextmenu", e => e.preventDefault());
+function goBackToDashboard() {
+  window.location = 'dashboard.html'
+}
 
-// Disable copy
-document.addEventListener("copy", e => e.preventDefault());
+document.addEventListener('contextmenu', event => event.preventDefault())
+document.addEventListener('copy', event => event.preventDefault())
+document.addEventListener('keydown', event => {
+  if (event.ctrlKey && event.key.toLowerCase() === 'p') {
+    event.preventDefault()
+    setExamStatus('Printing is disabled during the exam.', 'error')
+  }
+})
 
-// Disable Print (Ctrl + P)
-document.addEventListener("keydown", function(e) {
+window.addEventListener('beforeunload', () => {
+  if (questionPaperUrl) {
+    URL.revokeObjectURL(questionPaperUrl)
+  }
+})
 
-    if (e.ctrlKey && e.key === "p") {
-        e.preventDefault();
-        alert("Printing is disabled during exam");
-    }
+window.addEventListener('load', async () => {
+  if (window.electronAPI?.startFullscreen) {
+    window.electronAPI.startFullscreen()
+  }
 
-});
-
-
-// RUN AFTER PAGE LOAD
-window.onload = () => {
-
-    loadExam();
-    startCamera();
-    window.electronAPI.startFullscreen();
-
-};
+  await loadExam()
+  await startCamera()
+})

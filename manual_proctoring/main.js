@@ -15,11 +15,23 @@ function createWindow(){
   }
  });
 
- mainWindow.loadFile("renderer/login.html");
+ mainWindow.loadFile(path.join(__dirname, "renderer", "login.html"));
 
 }
 
 app.whenReady().then(createWindow);
+
+app.on("window-all-closed", () => {
+ if (process.platform !== "darwin") {
+  app.quit();
+ }
+});
+
+app.on("activate", () => {
+ if (BrowserWindow.getAllWindows().length === 0) {
+  createWindow();
+ }
+});
 
 
 // START FULLSCREEN WHEN EXAM STARTS
